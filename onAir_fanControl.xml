@@ -10,7 +10,7 @@
   <Support>https://github.com/CameraRick/onAir_fanControl/issues</Support>
   <Project>https://github.com/CameraRick/onAir_fanControl</Project>
   <Overview>
-    a Docker to send realtime HDD temp-data to drive a custom PWM-Fancontroller over MQTT (incl templates to make your own Controller with ESPHome)
+    a Docker to send realtime HDD temp-data to drive a custom PWM fan controller over MQTT (incl templates to make your own Controller with ESPHome)
   </Overview>
   <Category>Tools:System Utilities:</Category>
   <WebUI>http://[IP]:[PORT:3590]/</WebUI>
@@ -23,7 +23,7 @@
   <DonateText/>
   <DonateLink/>
   <Description>
-    a Docker to send realtime HDD temp-data to drive a custom PWM-Fancontroller over MQTT (incl templates to make your own Controller with ESPHome)
+    a Docker to send realtime HDD temp-data to drive a custom PWM fan controller over MQTT (incl templates to make your own Controller with ESPHome)
   </Description>
   <Networking>
     <Mode>bridge</Mode>
