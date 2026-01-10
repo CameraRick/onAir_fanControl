@@ -1,0 +1,496 @@
+substitutions:
+  failsafe_pwm: "75"
+  stale_seconds: "120"
+  failsafe_bias_limit: "25"
+  fan_test_duration_s: "15"
+  bias_timeout_hours: "4"
+
+esphome:
+  name: onair-fancontroller
+  friendly_name: onAir_fanController
+  on_boot:
+    priority: 600
+    then:
+      - script.execute: apply_pwm
+      - script.execute: publish_bias
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: "REPLACE_WITH_YOUR_KEY"
+
+ota:
+  - platform: esphome
+    password: "REPLACE_WITH_YOUR_PASSWORD"
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+  # Optional: Fallback Access Point
+  ap:
+    ssid: "Onair-Fancontroller"
+    password: "REPLACE_WITH_YOUR_AP_PASSWORD"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+mqtt:
+  broker: 192.168.178.x  # Your MQTT Broker IP
+  port: 1883
+  username: "YOUR_USERNAME"
+  password: "YOUR_PASSWORD"
+  discovery: false
+  on_message:
+    - topic: unraid/hdds/updated_at
+      then:
+        - lambda: |-
+            uint32_t ts = (uint32_t) strtoul(x.c_str(), nullptr, 10);
+            if (ts > 0) {
+              id(updated_at_ts) = ts;
+              id(last_seen_ms) = millis();
+            }
+        - script.execute: apply_pwm
+    - topic: unraid/hdds/target_pwm
+      then:
+        - lambda: |-
+            int v = atoi(x.c_str());
+            if (v < 0) v = 0;
+            if (v > 100) v = 100;
+            id(target_pwm) = v;
+            id(target_pwm_valid) = true;
+        - script.execute: apply_pwm
+  
+    - topic: unraid/hdds/max_temp
+      then:
+        - lambda: |-
+            int v = atoi(x.c_str());
+            if (v >= 0 && v <= 120) {
+              id(max_temp_c) = v;
+            }
+
+
+    - topic: unraid/hdds/spinning_disks
+      then:
+        - lambda: |-
+            int v = atoi(x.c_str());
+            if (v < 0) v = 0;
+            if (v > 64) v = 64;
+            id(spinning_disks) = v;
+
+    - topic: unraid/hdds/min_pwm
+      then:
+        - lambda: |-
+            int v = atoi(x.c_str());
+            if (v >= 0 && v <= 100) id(min_pwm) = v;
+        - script.execute: apply_pwm
+
+    - topic: unraid/hdds/max_pwm
+      then:
+        - lambda: |-
+            int v = atoi(x.c_str());
+            if (v >= 0 && v <= 100) id(max_pwm) = v;
+        - script.execute: apply_pwm
+  
+    - topic: unraid/hdds/bias_limit
+      then:
+        - lambda: |-
+            int v = atoi(x.c_str());
+            if (v >= 0 && v <= 100) id(bias_limit) = v;
+        - script.execute: apply_pwm
+
+output:
+  - platform: ledc
+    id: fan_pwm
+    pin: GPIO18
+    frequency: 25000 Hz
+    inverted: true
+
+globals:
+  - id: min_pwm
+    type: int
+    restore_value: false
+    initial_value: "25"
+
+  - id: max_pwm
+    type: int
+    restore_value: false
+    initial_value: '100'
+
+  - id: bias_limit
+    type: int
+    restore_value: false
+    initial_value: "${failsafe_bias_limit}"
+
+  - id: spinning_disks
+    type: int
+    restore_value: false
+    initial_value: '0'
+
+  - id: updated_at_ts
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  - id: failsafe_pwm
+    type: int
+    restore_value: false
+    initial_value: "${failsafe_pwm}"
+  - id: failsafe_age_s
+    type: int
+    restore_value: false
+    initial_value: "${stale_seconds}"
+  - id: target_pwm
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: target_pwm_valid
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: bias
+    type: int
+    restore_value: true
+    initial_value: "0"
+  - id: bias_step
+    type: int
+    restore_value: false
+    initial_value: "2"
+  - id: last_seen_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
+  - id: applied_pwm
+    type: int
+    restore_value: false
+    initial_value: "0"
+  - id: max_temp_c
+    type: int
+    restore_value: false
+    initial_value: "-1"
+
+  - id: target_pwm_output
+    type: int
+    restore_value: false
+    initial_value: "0"
+
+  - id: test_mode_end_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
+
+  - id: last_bias_change_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
+
+sensor:
+
+  - platform: template
+    id: mqtt_target_pwm
+    name: "Fan Target PWM (MQTT)"
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: 1s
+    lambda: |-
+      return id(target_pwm);
+
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: |-
+                return (id(last_seen_ms) != 0) &&
+                       ((millis() - id(last_seen_ms)) <= (uint32_t)(id(failsafe_age_s) * 1000));
+            then:
+              - script.execute: apply_pwm
+
+  - platform: template
+    name: "HDD Max Temp (°C)"
+    lambda: |-
+      if (id(max_temp_c) < 0) return NAN;
+      return (float) id(max_temp_c);
+    update_interval: 5s
+
+  - platform: template
+    name: "Updated Age (s)"
+    lambda: |-
+      if (id(last_seen_ms) == 0) return NAN;
+      return (float)((millis() - id(last_seen_ms)) / 1000);
+    update_interval: 1s
+
+  - platform: template
+    id: bias_sensor
+    name: "Fan Bias (%)"
+    lambda: |-
+      return (float) id(bias);
+    update_interval: 1s
+
+  - platform: template
+    id: applied_pwm_sensor
+    name: "Applied PWM (ESP)"
+    lambda: |-
+      return (float) id(applied_pwm);
+    update_interval: 1s
+
+
+  - platform: template
+    id: spinning_disks_sensor
+    name: "Spinning Disks"
+    lambda: |-
+      return (float) id(spinning_disks);
+    update_interval: 1s
+
+  - platform: template
+    id: min_pwm_sensor
+    name: "Min PWM (from Docker)"
+    lambda: |-
+      return (float) id(min_pwm);
+    update_interval: 1s
+
+  - platform: template
+    id: max_pwm_sensor
+    name: "Max PWM (from Docker)"
+    lambda: |-
+      return (float) id(max_pwm);
+    update_interval: 1s
+
+  - platform: template
+    id: bias_limit_sensor
+    name: "Bias Limit (from Docker)"
+    lambda: |-
+      return (float) id(bias_limit);
+    update_interval: 1s
+
+  - platform: wifi_signal
+    name: "WiFi Signal Strength"
+    update_interval: 60s
+
+  - platform: rotary_encoder
+    id: enc
+    internal: true
+    pin_a:
+      number: GPIO32
+      mode: { input: true, pullup: true }
+    pin_b:
+      number: GPIO33
+      mode: { input: true, pullup: true }
+    resolution: 2
+    filters:
+      - debounce: 15ms
+    on_clockwise:
+      then:
+        - script.execute: bias_step_up
+    on_anticlockwise:
+      then:
+        - script.execute: bias_step_down
+
+number:
+  - platform: template
+    id: bias_remote
+    name: "Fan Bias Remote (%)"
+    min_value: -100
+    max_value: 100
+    step: 1
+    optimistic: false
+    lambda: |-
+      return (float) id(bias);
+    set_action:
+      - lambda: |-
+          bool stale = (id(last_seen_ms) == 0) ||
+                       ((millis() - id(last_seen_ms)) > (uint32_t)(id(failsafe_age_s) * 1000));
+          int base = stale ? id(failsafe_pwm)
+                           : (id(mqtt_target_pwm).has_state()
+                              ? (int) lroundf(id(mqtt_target_pwm).state)
+                              : id(failsafe_pwm));
+          int limit = stale ? (int)atoi("${failsafe_bias_limit}") : id(bias_limit);
+
+          int val = (int) lroundf(x);
+          int bmax = id(max_pwm) - base;
+          int bmin = id(min_pwm) - base;
+          if (bmin < -limit) bmin = -limit;
+
+          if (val > bmax) val = bmax;
+          if (val < bmin) val = bmin;
+          id(bias) = val;
+          id(last_bias_change_ms) = millis();
+      - script.execute: publish_bias
+      - script.execute: apply_pwm
+
+binary_sensor:
+  - platform: gpio
+    id: enc_btn
+    pin:
+      number: GPIO27
+      mode: { input: true, pullup: true }
+      inverted: true
+    on_click:
+      then:
+        - script.execute: bias_reset
+
+button:
+  - platform: restart
+    name: "Restart ESP"
+  
+  - platform: template
+    name: "Fan Bias Reset"
+    id: bias_reset_button
+    icon: "mdi:restore"
+    on_press:
+      - script.execute: bias_reset
+
+  - platform: template
+    name: "Fan Test (100%)"
+    id: fan_test_button
+    icon: "mdi:fan-alert"
+    on_press:
+      then:
+        - lambda: |-
+            id(test_mode_end_ms) = millis() + (uint32_t)(${fan_test_duration_s}) * 1000;
+            ESP_LOGD("main", "Fan Test started for %s seconds", "${fan_test_duration_s}");
+        - script.execute: apply_pwm
+
+interval:
+  - interval: 5s
+    then:
+      - script.execute: apply_pwm
+
+  # Ramping Interval (Smooth transitions)
+  - interval: 100ms
+    then:
+      - lambda: |-
+          if (id(applied_pwm) != id(target_pwm_output)) {
+            if (id(applied_pwm) < id(target_pwm_output)) {
+              id(applied_pwm)++;
+            } else {
+              id(applied_pwm)--;
+            }
+            id(fan_pwm).set_level(id(applied_pwm) / 100.0f);
+          }
+
+  # Auto-Reset Bias Interval (Check every 30s)
+  - interval: 30s
+    then:
+      - lambda: |-
+          if (id(bias) != 0 && id(last_bias_change_ms) != 0) {
+            uint32_t timeout_ms = (uint32_t)(${bias_timeout_hours}) * 3600 * 1000;
+            if (millis() - id(last_bias_change_ms) > timeout_ms) {
+              ESP_LOGI("main", "Auto-resetting bias to 0 after %d hours of inactivity", (int)${bias_timeout_hours});
+              id(bias) = 0;
+              id(last_bias_change_ms) = 0;
+              id(bias_remote).publish_state(0.0f);
+              id(applied_pwm_sensor).publish_state(0.0f); // just to trigger update
+              // script.execute(apply_pwm) would be recursive if we are not careful, but interval is fine
+            }
+          }
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    ssid:
+      name: "Connected SSID"
+
+script:
+  - id: publish_bias
+    mode: restart
+    then:
+      - lambda: |-
+          id(bias_remote).publish_state((float) id(bias));
+
+  - id: bias_reset
+    mode: restart
+    then:
+      - lambda: |-
+          id(bias) = 0;
+          id(last_bias_change_ms) = millis(); // treat reset as a change to avoid immediate re-reset if we had a non-zero timeout
+      - script.execute: publish_bias
+      - script.execute: apply_pwm
+
+  - id: bias_step_up
+    mode: restart
+    then:
+      - lambda: |-
+          bool stale = (id(last_seen_ms) == 0) ||
+                       ((millis() - id(last_seen_ms)) > (uint32_t)(id(failsafe_age_s) * 1000));
+
+          int base = stale ? id(failsafe_pwm)
+                           : (id(mqtt_target_pwm).has_state()
+                              ? (int) lroundf(id(mqtt_target_pwm).state)
+                              : id(failsafe_pwm));
+
+          int limit = stale ? (int)atoi("${failsafe_bias_limit}") : id(bias_limit);
+
+          int bmax = id(max_pwm) - base;
+          int bmin = id(min_pwm) - base;
+          if (bmin < -limit) bmin = -limit;
+
+          id(bias) += id(bias_step);
+          if (id(bias) > bmax) id(bias) = bmax;
+          if (id(bias) < bmin) id(bias) = bmin;
+          id(last_bias_change_ms) = millis();
+      - script.execute: publish_bias
+      - script.execute: apply_pwm
+
+  - id: bias_step_down
+    mode: restart
+    then:
+      - lambda: |-
+          bool stale = (id(last_seen_ms) == 0) ||
+                       ((millis() - id(last_seen_ms)) > (uint32_t)(id(failsafe_age_s) * 1000));
+
+          int base = stale ? id(failsafe_pwm)
+                           : (id(mqtt_target_pwm).has_state()
+                              ? (int) lroundf(id(mqtt_target_pwm).state)
+                              : id(failsafe_pwm));
+
+          int limit = stale ? (int)atoi("${failsafe_bias_limit}") : id(bias_limit);
+
+          int bmax = id(max_pwm) - base;
+          int bmin = id(min_pwm) - base;
+          if (bmin < -limit) bmin = -limit;
+
+          id(bias) -= id(bias_step);
+          if (id(bias) > bmax) id(bias) = bmax;
+          if (id(bias) < bmin) id(bias) = bmin;
+          id(last_bias_change_ms) = millis();
+      - script.execute: publish_bias
+      - script.execute: apply_pwm
+
+  - id: apply_pwm
+    mode: restart
+    then:
+      - lambda: |-
+          // 1. Check Test Mode
+          if (id(test_mode_end_ms) != 0) {
+            if (millis() < id(test_mode_end_ms)) {
+              id(target_pwm_output) = 100;
+              return;
+            } else {
+              id(test_mode_end_ms) = 0;
+              ESP_LOGD("main", "Fan Test ended");
+            }
+          }
+
+          // 2. Normal Logic
+          bool stale = (id(last_seen_ms) == 0) ||
+                       ((millis() - id(last_seen_ms)) > (uint32_t)(id(failsafe_age_s) * 1000));
+
+          int base = stale ? id(failsafe_pwm)
+                           : (id(mqtt_target_pwm).has_state()
+                              ? (int) lroundf(id(mqtt_target_pwm).state)
+                              : id(failsafe_pwm));
+
+          int target = base + id(bias);
+          if (target < id(min_pwm)) target = id(min_pwm);
+          if (target > id(max_pwm)) target = id(max_pwm);
+
+          id(target_pwm_output) = target;
+          // ramping is handled by interval

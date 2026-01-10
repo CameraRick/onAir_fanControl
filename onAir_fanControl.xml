@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Container version="2">
+  <Name>onAir_fanControl</Name>
+  <Repository>USERNAME/onair_fancontrol</Repository>
+  <Registry>https://hub.docker.com/r/USERNAME/onair_fancontrol</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>true</Privileged>
+  <Support>https://github.com/USERNAME/onAir_fanControl/issues</Support>
+  <Project>https://github.com/USERNAME/onAir_fanControl</Project>
+  <Overview>
+    a Docker to send realtime HDD temp-data to drive a custom PWM-Fancontroller over MQTT (incl templates to make your own Controller with ESPHome)
+  </Overview>
+  <Category>Tools:System Utilities:</Category>
+  <WebUI>http://[IP]:[PORT:8088]/</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/USERNAME/onAir_fanControl/main/icon.png</Icon>
+  <ExtraParams>--restart unless-stopped</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Description>
+    HDD temperature-based fan control using smartctl and ESPHome.
+  </Description>
+  <Networking>
+    <Mode>bridge</Mode>
+    <Publish>
+      <Port>
+        <HostPort>8088</HostPort>
+        <ContainerPort>8088</ContainerPort>
+        <Protocol>tcp</Protocol>
+      </Port>
+    </Publish>
+  </Networking>
+  <Data>
+    <Volume>
+      <HostDir>/mnt/user/appdata/onair_fancontrol</HostDir>
+      <ContainerDir>/config</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+    <Volume>
+      <HostDir>/var/local/emhttp/</HostDir>
+      <ContainerDir>/host</ContainerDir>
+      <Mode>ro</Mode>
+    </Volume>
+    <Volume>
+      <HostDir>/dev</HostDir>
+      <ContainerDir>/dev</ContainerDir>
+      <Mode>ro</Mode>
+    </Volume>
+  </Data>
+  <Environment>
+    <Variable>
+      <Value>Europe/Berlin</Value>
+      <Name>TZ</Name>
+      <Mode/>
+    </Variable>
+  </Environment>
+  <Config Name="Web Port" Target="8088" Default="8088" Mode="tcp" Description="The internal port of the application is 8088. Map this to whatever host port you prefer." Type="Port" Display="always" Required="true" Mask="false">8088</Config>
+  <Config Name="AppData Path" Target="/config" Default="/mnt/user/appdata/onair_fancontrol" Mode="rw" Description="Location where your config.json will be saved persistently." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/onair_fancontrol</Config>
+  <Config Name="Unraid Host Mount" Target="/host" Default="/var/local/emhttp/" Mode="ro" Description="Required to read disks.ini from Unraid for disk status and temperature fallback." Type="Path" Display="advanced" Required="true" Mask="false">/var/local/emhttp/</Config>
+  <Config Name="Device Access" Target="/dev" Default="/dev" Mode="ro" Description="Crucial: Allows the container to access hardware devices directly so smartctl can read temperatures without waking up standby drives. Requires 'Privileged' mode." Type="Path" Display="always" Required="true" Mask="false">/dev</Config>
+</Container>
