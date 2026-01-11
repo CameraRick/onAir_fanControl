@@ -1,7 +1,5 @@
 # onAir_fanControl
 
-**a Docker to send realtime HDD temp-data to drive a custom PWM controller over MQTT**
-
 This project sends HDD temperatures of your unRAID server over MQTT, to feed an external ESP to drive your PWM fans. It uses `smartctl` to read temperatures (even when disks are in standby) and lets you conveniently set up a fan curve in its WebUI.
 *(as "only" MQTT data is transmitted, you can also use any other device to drive your fans - this project was built around an ESP node, though)*
 
