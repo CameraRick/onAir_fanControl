@@ -43,7 +43,7 @@ B) In the WebUI, add your MQTT credentials, and restart the container. With MQTT
 ### 2. ESPHome Setup
 *Before the ESP gets wired up and put into its place, I recommend installing the firmware first; when this is done, you can wirelessly access and update it down the road.*
 
-A) Install the [ESPHome Add-on](https://esphome.io/guides/getting_started_hassio/) in Home Assistant. After, open the `ESPHome Device Builder` WebUI, and press "+ New Device" (usually in the lower right corner). Hit "Continue", and then "Import from File" - select the provided `onAir_fanController_ESPHome-template.yaml`. Press "Skip" for now.
+A) Install the [ESPHome Add-on](https://esphome.io/guides/getting_started_hassio/) in Home Assistant. After, open the `ESPHome Device Builder` WebUI, and press "+ New Device" (usually in the lower right corner). Hit "Continue", and then "Import from File" - select the provided [`onAir_fanController_ESPHome-template.yaml`](./esphome-template/onAir_fanController.yaml). Press "Skip" for now.
 
 B) Hit "EDIT" on the newly created entry; you will need to adjust the connection data to properly install the firmware first.
 Update your Wi-Fi (under `wifi:`) and MQTT credentials (under `mqtt:`) in the YAML before flashing; obviously, this has to match the network and MQTT broker that you are using in the Docker. For `board:`, you have to set the board you are actually using - refer [here](https://esphome.io/components/esp32.html#esp32-board-list) for further information. Also, you can set API-encryption, an OTA password, and an Access-Point (ap) password. The latter three can all be removed if you don't want or need them.
