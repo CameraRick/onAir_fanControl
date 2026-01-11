@@ -127,7 +127,7 @@
             <div class="sub-h">
               <h3>General</h3>
               <button type="button" class="info"
-                data-tip="<b>publish_interval_s</b>: how often <b>target_pwm</b> is published to MQTT.<br><b>disks_poll_s</b>: how often <b>disks.ini</b> is checked for status and <b>real-time SMART</b> temperatures are queried for active drives.">i</button>
+                data-tip="<b>publish_interval_s</b>: how often <b>target_pwm</b> is published to MQTT (in seconds).<br><b>disks_poll_s</b>: how often <b>disks.ini</b> is checked for status and <b>real-time SMART</b> temperatures are queried for active drives (in seconds).">i</button>
             </div>
             <div class="form-grid">
               <div class="k">publish_interval_s</div>
@@ -150,7 +150,7 @@
               <input class="num" type="number" name="min_pwm" step="1" value="{{ cfg.limits.min_pwm }}">
               <div class="k">max_pwm (%)</div>
               <input class="num" type="number" name="max_pwm" step="1" value="{{ cfg.limits.max_pwm }}">
-              <div class="k">bias_limit</div>
+              <div class="k">bias_limit (%)</div>
               <input class="num" type="number" name="bias_limit" step="1" value="{{ cfg.limits.bias_limit }}">
             </div>
             <div class="save-row"><button class="btn primary" type="submit">save</button></div>
@@ -160,7 +160,7 @@
             <div class="sub-h">
               <h3>Misc</h3>
               <button type="button" class="info"
-                data-tip="<b>hysteresis_up and _down</b> (°C): minimum change required to update PWM.<br><b>ui_refresh_s</b>: how often this dashboard updates.">i</button>
+                data-tip="<b>hysteresis_up and _down</b> (°C): minimum change required to update PWM.<br><b>ui_refresh_s</b>: how often this dashboard updates (in seconds).">i</button>
             </div>
             <div class="form-grid">
               <div class="k">hysteresis (°C)</div>
@@ -187,7 +187,7 @@
               <div class="k">enabled</div>
               <div class="checkline"><input type="checkbox" name="all_spun_down_enabled" {% if cfg.all_spun_down.enabled
                   %}checked{% endif %}></div>
-              <div class="k">after_pwm</div>
+              <div class="k">after_pwm (%)</div>
               <input class="num" type="number" name="all_spun_down_after_pwm" step="1"
                 value="{{ cfg.all_spun_down.after_pwm }}">
             </div>
