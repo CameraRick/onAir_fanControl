@@ -21,7 +21,7 @@ FAVICON_PATH = os.path.join(CODE_DIR, "favicon.ico")
 TZ_NAME = os.getenv("TZ", "UTC")
 
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "mqtt": {"host": "192.168.178.8", "port": 1883, "username": "", "password": ""},
+    "mqtt": {"host": "", "port": 1883, "username": "", "password": ""},
     "topics": {
         "target_pwm": "unraid/hdds/target_pwm",          # output
         "min_pwm": "unraid/hdds/min_pwm",                # output (debug)
@@ -31,25 +31,26 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "updated_at": "unraid/hdds/updated_at",          # output (unix ts)
         "bias_limit": "unraid/hdds/bias_limit",          # output (debug)
     },
-    "limits": {"min_pwm": 25, "max_pwm": 100, "bias_limit": 25},
+    "limits": {"min_pwm": 20, "max_pwm": 100, "bias_limit": 25},
     "hysteresis_up": 0,
-    "hysteresis_down": 3,
+    "hysteresis_down": 2,
 
     "curve": [
-        {"temp_c": 0, "pwm": 25},
-        {"temp_c": 40, "pwm": 50},
-        {"temp_c": 43, "pwm": 75},
-        {"temp_c": 50, "pwm": 100},
+        {"temp_c": 15, "pwm": 0},
+        {"temp_c": 20, "pwm": 20},
+        {"temp_c": 30, "pwm": 30},
+        {"temp_c": 42, "pwm": 75},
+        {"temp_c": 45, "pwm": 100},
     ],
     "curve_mode": "linear",  # linear | steps
-    "publish_interval_s": 10,
+    "publish_interval_s": 30,
     "ui_refresh_s": 10,
     "esp_ip": "",
 
-    "unraid_disks_ini": {"path": "/host/disks.ini", "poll_s": 15},
+    "unraid_disks_ini": {"path": "/host/disks.ini", "poll_s": 30},
 
     # Optional behavior (keine "Failsafe"-Logik mehr hier)
-    "all_spun_down": {"enabled": False, "after_pwm": 25},
+    "all_spun_down": {"enabled": True, "after_pwm": 15},
 }
 
 DISKS_INI_DEFAULT_PATH = "/host/disks.ini"
