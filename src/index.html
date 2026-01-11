@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>{{ app_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body data-refresh="{{ cfg.ui_refresh_s }}">
+  <div class="wrap">
+
+    <div class="topbar">
+      {% set m = (status.mode or '') %}
+      {% set cls = 'badge-blue' %}
+      {% if 'normal' in m %}{% set cls='badge-green' %}{% endif %}
+      {% if 'startup_blow' in m %}{% set cls='badge-blue' %}{% endif %}
+      {% if 'idle' in m %}{% set cls='badge-blue' %}{% endif %}
+
+      <div id="badge-mode" class="badge {{ cls }}">
+        <span class="dot"></span>
+        <div><strong>mode:</strong> <span id="text-mode">{{ status.mode }}</span> <span id="pill-source"
+            class="pill">source={{ status.source }}</span></div>
+      </div>
+
+      <div id="badge-mqtt" class="badge {% if mqtt_connected %}badge-green{% else %}badge-red{% endif %}">
+        <span class="dot"></span>
+        <div id="text-mqtt"><strong>mqtt:</strong> {% if mqtt_connected %}online{% else %}offline{% endif %}
+        </div>
+      </div>
+
+      <div id="badge-esp" class="badge {% if status.esp_online %}badge-green{% else %}badge-red{% endif %}">
+        <span class="dot"></span>
+        <div id="text-esp"><strong>esp:</strong> <span id="val-esp-status">{% if status.esp_online %}online{% else
+            %}offline{% endif %}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Card -->
+    <div class="card">
+      <div class="card-h">
+        <h2>Status</h2>
+        <span id="pill-updated-at" class="pill">updated_at: {{ status.updated_at_human }}</span>
+      </div>
+
+      <div class="status-grid status-grid-4">
+        <div class="kv">
+          <div class="k">target_pwm (%)</div>
+          <div id="val-target-pwm" class="v">{{ status.target_pwm }}</div>
+        </div>
+        <div class="kv">
+          <div class="k">updated_age_s</div>
+          <div id="val-updated-age" class="v">{{ status.updated_age_s }}</div>
+        </div>
+        <div class="kv">
+          <div class="k">max_temp (°C)</div>
+          <div id="val-max-temp" class="v">{{ status.max_temp }}</div>
+        </div>
+        <div class="kv">
+          <div class="k">spinning_disks</div>
+          <div id="val-spinning-disks" class="v">{{ status.spinning_disks }}</div>
+        </div>
+      </div>
+
+      <!-- History Graph -->
+      <div class="h-card">
+        <div id="val-h-svg">{{ h_svg|safe }}</div>
+      </div>
+    </div>
+
+    <!-- Curve Card includes all subcards -->
+    <div class="card">
+      <div class="card-h">
+        <h2>Curve</h2>
+        <button type="button" class="info"
+          data-tip="<b>Curve</b>: maps temperature to PWM.<br><b>linear</b>: smooth interpolation.<br><b>steps</b>: plateau until next point.<br><span class='muted'>Tip:</span> add a plateau (e.g. <b>39°C → 25%</b>) before ramping up.">i</button>
+      </div>
+
+      <form method="post" action="/save_settings">
+        <button type="submit" style="display:none; visibility:hidden;"></button>
+
+        <div class="curve-mode">
+          <label>Mode</label>
+          <select name="curve_mode">
+            <option value="linear" {% if cfg.curve_mode=='linear' %}selected{% endif %}>linear</option>
+            <option value="steps" {% if cfg.curve_mode=='steps' %}selected{% endif %}>steps</option>
+          </select>
+        </div>
+
+        <div class="curve-row">
+          <div class="curve-left">
+            <div class="points">
+              <div class="points-h">
+                <div>Temp (°C)</div>
+                <div>PWM (%)</div>
+                <div></div>
+              </div>
+              {% for p in cfg.curve %}
+              <div class="points-r">
+                <input class="num" type="number" name="curve_temp" step="0.1" value="{{ p.temp_c }}"
+                  data-idx="{{ loop.index0 }}">
+                <input class="num" type="number" name="curve_pwm" step="1" value="{{ p.pwm }}"
+                  data-idx="{{ loop.index0 }}">
+                <button class="btn small" name="delete_idx" value="{{ loop.index0 }}">delete</button>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="row-actions">
+              <button class="btn small" name="add_point" value="1">add point</button>
+              <button class="btn small primary" type="submit">save</button>
+            </div>
+          </div>
+
+          <div class="curve-right">
+            <div class="graph-wrap">
+              {{ svg|safe }}
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <div class="subcard">
+            <div class="sub-h">
+              <h3>General</h3>
+              <button type="button" class="info"
+                data-tip="<b>publish_interval_s</b>: how often <b>target_pwm</b> is published to MQTT.<br><b>disks_poll_s</b>: how often <b>disks.ini</b> is checked for status and <b>real-time SMART</b> temperatures are queried for active drives.">i</button>
+            </div>
+            <div class="form-grid">
+              <div class="k">publish_interval_s</div>
+              <input class="num" type="number" name="publish_interval_s" step="1" value="{{ cfg.publish_interval_s }}">
+
+              <div class="k">disks_poll_s</div>
+              <input class="num" type="number" name="disks_poll_s" step="1" value="{{ cfg.unraid_disks_ini.poll_s }}">
+            </div>
+            <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+          </div>
+
+          <div class="subcard">
+            <div class="sub-h">
+              <h3>Limits</h3>
+              <button type="button" class="info"
+                data-tip="<b>min_pwm</b>: clamp lower bound.<br><b>max_pwm</b>: clamp upper bound.<br><b>bias_limit</b>: maximum allowed <i>negative</i> manual bias.<br><span class='muted'>Note:</span> <b>min_pwm</b> is bypassed if <b>all HDDs spun down</b> is enabled.">i</button>
+            </div>
+            <div class="form-grid">
+              <div class="k">min_pwm (%)</div>
+              <input class="num" type="number" name="min_pwm" step="1" value="{{ cfg.limits.min_pwm }}">
+              <div class="k">max_pwm (%)</div>
+              <input class="num" type="number" name="max_pwm" step="1" value="{{ cfg.limits.max_pwm }}">
+              <div class="k">bias_limit</div>
+              <input class="num" type="number" name="bias_limit" step="1" value="{{ cfg.limits.bias_limit }}">
+            </div>
+            <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+          </div>
+
+          <div class="subcard">
+            <div class="sub-h">
+              <h3>Misc</h3>
+              <button type="button" class="info"
+                data-tip="<b>hysteresis_up and _down</b> (°C): minimum change required to update PWM.<br><b>ui_refresh_s</b>: how often this dashboard updates.">i</button>
+            </div>
+            <div class="form-grid">
+              <div class="k">hysteresis (°C)</div>
+              <div class="m-fields">
+                <span class="lbl">up</span>
+                <input class="num" type="number" name="hysteresis_up" step="0.1" value="{{ cfg.hysteresis_up }}">
+                <span class="lbl">down</span>
+                <input class="num" type="number" name="hysteresis_down" step="0.1" value="{{ cfg.hysteresis_down }}">
+              </div>
+
+              <div class="k">ui_refresh_s</div>
+              <input class="num" type="number" name="ui_refresh_s" step="1" value="{{ cfg.ui_refresh_s }}">
+            </div>
+            <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+          </div>
+
+          <div class="subcard">
+            <div class="sub-h">
+              <h3>all HDDs spun down</h3>
+              <button type="button" class="info"
+                data-tip="<b>enabled</b>: switch to fixed PWM when all disks are spun down.<br><b>after_pwm</b>: target PWM for idle state.<br><span class='muted'>Logic:</span> This value <b>overrides</b> the <b>min_pwm</b> limit (if enabled).">i</button>
+            </div>
+            <div class="form-grid">
+              <div class="k">enabled</div>
+              <div class="checkline"><input type="checkbox" name="all_spun_down_enabled" {% if cfg.all_spun_down.enabled
+                  %}checked{% endif %}></div>
+              <div class="k">after_pwm</div>
+              <input class="num" type="number" name="all_spun_down_after_pwm" step="1"
+                value="{{ cfg.all_spun_down.after_pwm }}">
+            </div>
+            <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+          </div>
+        </div> <!-- end settings-grid -->
+      </form>
+    </div> <!-- end Curve card -->
+
+    <!-- Network Card -->
+    <div class="card">
+      <div class="card-h">
+        <h2>Network <span style="font-size: 0.8em; font-weight: normal; margin-left:10px; color:#e74c3c">(restart Docker
+            after changes)</span></h2>
+        <button type="button" class="info" data-tip="MQTT and ESP connectivity settings.">i</button>
+      </div>
+
+      <form method="post" action="/save_settings">
+        <div class="settings-grid">
+          <div class="v-group">
+            <div class="subcard">
+              <div class="sub-h">
+                <h3>MQTT Broker</h3>
+              </div>
+              <div class="form-grid">
+                <div class="k">host</div><input class="num" name="mqtt_host" value="{{ cfg.mqtt.host }}">
+                <div class="k">port</div><input class="num" name="mqtt_port" type="number" step="1"
+                  value="{{ cfg.mqtt.port }}">
+                <div class="k">username</div><input class="num" name="mqtt_username" value="{{ cfg.mqtt.username }}">
+                <div class="k">password</div><input class="num" name="mqtt_password" type="password"
+                  value="{{ '**********' if cfg.mqtt.password else '' }}"
+                  placeholder="{{ 'Leave empty to keep' if cfg.mqtt.password else '' }}">
+              </div>
+              <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+            </div>
+
+            <div class="subcard">
+              <div class="sub-h">
+                <h3>ESP Node</h3>
+              </div>
+              <div class="form-grid">
+                <div class="k">IP Address</div>
+                <input class="num" name="esp_ip" value="{{ cfg.esp_ip }}" placeholder="e.g. 192.168.178.101">
+              </div>
+              <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+            </div>
+          </div>
+
+          <div class="subcard">
+            <div class="sub-h">
+              <h3>Topics</h3>
+            </div>
+            <div class="form-grid">
+              <div class="k">target_pwm</div><input class="num" name="topic_target_pwm"
+                value="{{ cfg.topics.target_pwm }}">
+              <div class="k">min_pwm</div><input class="num" name="topic_min_pwm" value="{{ cfg.topics.min_pwm }}">
+              <div class="k">max_pwm</div><input class="num" name="topic_max_pwm" value="{{ cfg.topics.max_pwm }}">
+              <div class="k">max_temp</div><input class="num" name="topic_max_temp" value="{{ cfg.topics.max_temp }}">
+              <div class="k">spinning_disks</div><input class="num" name="topic_spinning_disks"
+                value="{{ cfg.topics.spinning_disks }}">
+              <div class="k">updated_at</div><input class="num" name="topic_updated_at"
+                value="{{ cfg.topics.updated_at }}">
+              <div class="k">bias_limit</div><input class="num" name="topic_bias_limit"
+                value="{{ cfg.topics.bias_limit }}">
+            </div>
+            <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+          </div>
+        </div>
+      </form>
+    </div> <!-- end MQTT card -->
+
+    <!-- JSON / Log Card -->
+    <div class="card">
+      <div class="card-h">
+        <h2>raw JSON & Log</h2>
+      </div>
+      <div class="split">
+        <form method="post" action="/save_json">
+          <textarea class="ta" name="config_json">{{ config_json }}</textarea>
+          <div class="save-row"><button class="btn primary" type="submit">save</button></div>
+        </form>
+        <textarea class="log mono" readonly spellcheck="false">{{ log_text }}</textarea>
+      </div>
+    </div> <!-- end JSON card -->
+
+  </div> <!-- end wrap -->
+
+  <div id="tip" class="tip" style="display:none"></div>
+
+  <script>
+    (function () {
+      const tip = document.getElementById('tip');
+      let openBtn = null;
+      let isDragging = false;
+      function hide() { tip.style.display = 'none'; tip.innerHTML = ''; openBtn = null; }
+      function positionTip(btn) {
+        const pad = 10; const gap = 8;
+        const maxW = Math.min(560, window.innerWidth - 24); tip.style.maxWidth = maxW + 'px';
+        const r = btn.getBoundingClientRect();
+        let left = r.left; let top = r.bottom + gap;
+        const tr = tip.getBoundingClientRect();
+        if (left + tr.width + pad > window.innerWidth) left = window.innerWidth - tr.width - pad;
+        if (left < pad) left = pad;
+        if (top + tr.height + pad > window.innerHeight) top = r.top - tr.height - gap;
+        if (top < pad) top = pad;
+        tip.style.left = left + 'px'; tip.style.top = top + 'px';
+      }
+      function showFor(btn) {
+        const html = btn.getAttribute('data-tip') || ''; if (!html) return;
+        tip.innerHTML = html; tip.style.display = 'block'; openBtn = btn;
+        requestAnimationFrame(() => positionTip(btn));
+      }
+      function toggle(btn) { if (openBtn === btn) hide(); else showFor(btn); }
+      document.addEventListener('pointerdown', (e) => {
+        const btn = e.target.closest('.info');
+        if (btn) { toggle(btn); e.preventDefault(); e.stopPropagation(); return; }
+        if (openBtn) hide();
+      }, { passive: false });
+      tip.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+      window.addEventListener('resize', () => { if (openBtn) positionTip(openBtn); }, { passive: true });
+      window.addEventListener('scroll', () => { if (openBtn) hide(); }, { passive: true });
+
+      let ageTimer = null;
+      let currentAge = 0;
+
+      async function refreshStatus() {
+        try {
+          const res = await fetch('/api/status?t=' + Date.now());
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data || !data.status) return;
+          const st = data.status;
+
+          const setTxt = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val ?? '--';
+          };
+
+          setTxt('val-target-pwm', st.target_pwm);
+          setTxt('val-max-temp', st.max_temp);
+          setTxt('val-spinning-disks', st.spinning_disks);
+          setTxt('text-mode', st.mode);
+
+          // Update local age reference
+          currentAge = parseInt(st.updated_age_s) || 0;
+          setTxt('val-updated-age', currentAge);
+
+          const pillUpd = document.getElementById('pill-updated-at');
+          if (pillUpd) pillUpd.textContent = 'updated_at: ' + (st.updated_at_human || 'None');
+
+          const pillSrc = document.getElementById('pill-source');
+          if (pillSrc) pillSrc.textContent = 'source=' + (st.source || '');
+
+          const valHSvg = document.getElementById('val-h-svg');
+          if (valHSvg && data.h_svg) valHSvg.innerHTML = data.h_svg;
+
+          const badgeMode = document.getElementById('badge-mode');
+          if (badgeMode && st.mode) {
+            badgeMode.className = 'badge ' + (st.mode.includes('normal') ? 'badge-green' : 'badge-blue');
+          }
+
+          // Update Graph Line
+          const svg = document.getElementById('curve-svg');
+          if (svg) {
+            const val = parseFloat(st.max_temp);
+            if (!isNaN(val)) {
+              // Read metrics from data attributes
+              const xmin = parseFloat(svg.getAttribute('data-xmin'));
+              const xmax = parseFloat(svg.getAttribute('data-xmax'));
+              const left = parseFloat(svg.getAttribute('data-left'));
+              const right = parseFloat(svg.getAttribute('data-right'));
+              const width = parseFloat(svg.getAttribute('data-width'));
+              const plotW = width - left - right;
+
+              // Calc X position
+              const cx = left + (val - xmin) / (xmax - xmin) * plotW;
+
+              // Update or create line
+              let line = svg.querySelector('.current-temp-line');
+              if (!line) {
+                line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('class', 'current-temp-line');
+                line.setAttribute('y1', svg.getAttribute('data-top'));
+                line.setAttribute('y2', parseFloat(svg.getAttribute('data-height')) - parseFloat(svg.getAttribute('data-bottom')));
+                svg.appendChild(line);
+              }
+
+              // Boundary checks
+              const axisX1 = left + plotW;
+              if (cx >= left && cx <= axisX1) {
+                line.style.display = 'block';
+                line.setAttribute('x1', cx);
+                line.setAttribute('x2', cx);
+              } else {
+                line.style.display = 'none';
+              }
+            } else {
+              const line = svg.querySelector('.current-temp-line');
+              if (line) line.style.display = 'none';
+            }
+          }
+
+          const badgeMqtt = document.getElementById('badge-mqtt');
+          const textMqtt = document.getElementById('text-mqtt');
+          if (badgeMqtt && textMqtt) {
+            if (data.mqtt_connected) {
+              badgeMqtt.className = 'badge badge-green';
+              textMqtt.innerHTML = '<strong>mqtt:</strong> online';
+            } else {
+              badgeMqtt.className = 'badge badge-red';
+              textMqtt.innerHTML = '<strong>mqtt:</strong> offline';
+            }
+          }
+
+          const badgeEsp = document.getElementById('badge-esp');
+          const valEsp = document.getElementById('val-esp-status');
+          if (badgeEsp && valEsp) {
+            if (st.esp_online) {
+              badgeEsp.className = 'badge badge-green';
+              valEsp.textContent = 'online';
+            } else {
+              badgeEsp.className = 'badge badge-red';
+              valEsp.textContent = 'offline';
+            }
+          }
+
+          // Update logs and auto-scroll
+          const logArea = document.querySelector('textarea.log');
+          if (logArea && data.log_text) {
+            const oldVal = logArea.value;
+            if (oldVal !== data.log_text) {
+              // Check if we are near the bottom (allow 50px buffer)
+              const isAtBottom = (logArea.scrollHeight - logArea.scrollTop - logArea.clientHeight) < 50;
+              logArea.value = data.log_text;
+
+              // Only force scroll if we were already at the bottom
+              if (isAtBottom) {
+                logArea.scrollTop = logArea.scrollHeight;
+              }
+            }
+          }
+        } catch (e) {
+          console.error('refresh failed', e);
+        }
+      }
+
+      let refreshSec = parseInt(document.body.getAttribute('data-refresh') || '0');
+      if (isNaN(refreshSec)) refreshSec = 10; // Fallback
+
+      console.log("UI Refresh Interval: " + refreshSec + "s");
+
+      if (refreshSec > 0) {
+        setInterval(() => {
+          const active = document.activeElement;
+          const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA');
+          const isEditing = isInput && !active.readOnly;
+
+          if (!isEditing && !openBtn && !isDragging) {
+            console.log("Tick: refreshing status...");
+            refreshStatus();
+          } else {
+            console.log("Tick: skipped (editing=" + isEditing + ", openBtn=" + !!openBtn + ", dragging=" + isDragging + ")");
+          }
+        }, refreshSec * 1000);
+      }
+
+      // Initial load
+      document.addEventListener('DOMContentLoaded', () => {
+        refreshStatus();
+      });
+
+      function initDraggableGraph() {
+        const svg = document.getElementById('curve-svg');
+        if (!svg) return;
+
+        const xMin = parseFloat(svg.dataset.xmin);
+        const xMax = parseFloat(svg.dataset.xmax);
+        const yMin = parseFloat(svg.dataset.ymin);
+        const yMax = parseFloat(svg.dataset.ymax);
+        const left = parseFloat(svg.dataset.left);
+        const top = parseFloat(svg.dataset.top);
+        const plotW = parseFloat(svg.dataset.width) - left - parseFloat(svg.dataset.right);
+        const plotH = parseFloat(svg.dataset.height) - top - parseFloat(svg.dataset.bottom);
+
+        let draggedIdx = null;
+
+        function getMousePos(evt) {
+          const CTM = svg.getScreenCTM();
+          if (evt.touches) evt = evt.touches[0];
+          return {
+            x: (evt.clientX - CTM.e) / CTM.a,
+            y: (evt.clientY - CTM.f) / CTM.d
+          };
+        }
+
+        svg.addEventListener('mousedown', startDrag);
+        svg.addEventListener('touchstart', startDrag, { passive: false });
+        svg.addEventListener('dblclick', addPoint);
+        svg.addEventListener('contextmenu', removePoint);
+
+        function addPoint(evt) {
+          let tempVal, pwmVal;
+          if (evt.type === 'dblclick') {
+            const pos = getMousePos(evt);
+            tempVal = xMin + ((pos.x - left) / plotW) * (xMax - xMin);
+            pwmVal = yMin + (1 - (pos.y - top) / plotH) * (yMax - yMin);
+          } else {
+            // Manual "Add Point" button click: use default
+            tempVal = 55.0;
+            pwmVal = 100;
+            evt.preventDefault();
+          }
+
+          tempVal = Math.max(xMin, Math.min(xMax, tempVal));
+          pwmVal = Math.max(yMin, Math.min(yMax, pwmVal));
+
+          const pointsContainer = document.querySelector('.points');
+          const newRow = document.createElement('div');
+          newRow.className = 'points-r';
+          newRow.innerHTML = `
+            <input class="num" type="number" name="curve_temp" step="0.1" value="${tempVal.toFixed(1)}">
+            <input class="num" type="number" name="curve_pwm" step="1" value="${Math.round(pwmVal)}">
+            <button class="btn small" name="delete_idx" type="button">delete</button>
+          `;
+
+          // Insert sorted
+          const rows = Array.from(pointsContainer.querySelectorAll('.points-r'));
+          let inserted = false;
+          for (const row of rows) {
+            const t = parseFloat(row.querySelector('input[name="curve_temp"]').value);
+            if (t > tempVal) {
+              pointsContainer.insertBefore(newRow, row);
+              inserted = true;
+              break;
+            }
+          }
+          if (!inserted) pointsContainer.appendChild(newRow);
+
+          // Add circle to SVG
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('r', '6');
+          circle.setAttribute('class', 'point-node');
+          svg.appendChild(circle);
+
+          reindexEverything();
+        }
+
+        function removePoint(evt) {
+          const target = evt.target;
+          if (target.classList.contains('point-node') || target.name === 'delete_idx') {
+            evt.preventDefault();
+            const rows = document.querySelectorAll('.points-r');
+            if (rows.length <= 1) {
+              alert("At least 1 point is required.");
+              return;
+            }
+
+            let idx;
+            if (target.classList.contains('point-node')) {
+              idx = parseInt(target.dataset.idx);
+            } else {
+              // It's a button, find its row index
+              idx = Array.from(rows).indexOf(target.closest('.points-r'));
+            }
+
+            rows[idx].remove();
+            svg.querySelectorAll('.point-node')[idx].remove();
+            reindexEverything();
+          }
+        }
+
+        // Listen for clicks on the manual "Add Point" button
+        const addBtn = document.querySelector('button[name="add_point"]');
+        if (addBtn) addBtn.onclick = addPoint;
+
+        // Use event delegation for delete buttons in the table
+        document.querySelector('.points').addEventListener('click', (e) => {
+          if (e.target.name === 'delete_idx') removePoint(e);
+        });
+
+        function reindexEverything() {
+          const rows = document.querySelectorAll('.points-r');
+          const circles = svg.querySelectorAll('.point-node');
+
+          // Re-sort table in DOM just in case
+          const pointsContainer = document.querySelector('.points');
+          const sortedRows = Array.from(rows).sort((a, b) => {
+            return parseFloat(a.querySelector('input[name="curve_temp"]').value) - parseFloat(b.querySelector('input[name="curve_temp"]').value);
+          });
+          sortedRows.forEach(r => pointsContainer.appendChild(r));
+
+          // Update data-idx and positions
+          sortedRows.forEach((row, i) => {
+            const tInput = row.querySelector('input[name="curve_temp"]');
+            const pInput = row.querySelector('input[name="curve_pwm"]');
+            const delBtn = row.querySelector('button[name="delete_idx"]');
+
+            tInput.dataset.idx = i;
+            pInput.dataset.idx = i;
+            delBtn.value = i;
+
+            const t = parseFloat(tInput.value);
+            const p = parseFloat(pInput.value);
+
+            const circle = circles[i];
+            circle.dataset.idx = i;
+            circle.setAttribute('cx', (left + (t - xMin) / (xMax - xMin) * plotW).toFixed(1));
+            circle.setAttribute('cy', (top + (1 - (p - yMin) / (yMax - yMin)) * plotH).toFixed(1));
+          });
+
+          updatePolyline();
+        }
+
+        function startDrag(evt) {
+          const target = evt.target;
+          if (target.classList.contains('point-node')) {
+            draggedIdx = parseInt(target.dataset.idx);
+            target.classList.add('dragging');
+            isDragging = true;
+
+            window.addEventListener('mousemove', drag);
+            window.addEventListener('touchmove', drag, { passive: false });
+            window.addEventListener('mouseup', endDrag);
+            window.addEventListener('touchend', endDrag);
+
+            evt.preventDefault();
+          }
+        }
+
+        function drag(evt) {
+          if (draggedIdx === null) return;
+          const pos = getMousePos(evt);
+
+          // SVG coord -> Values
+          let tempVal = xMin + ((pos.x - left) / plotW) * (xMax - xMin);
+          let pwmVal = yMin + (1 - (pos.y - top) / plotH) * (yMax - yMin);
+
+          tempVal = Math.max(xMin, Math.min(xMax, tempVal));
+          pwmVal = Math.max(yMin, Math.min(yMax, pwmVal));
+
+          const tempInputs = document.querySelectorAll('input[name="curve_temp"]');
+          const pwmInputs = document.querySelectorAll('input[name="curve_pwm"]');
+
+          const prevTemp = draggedIdx > 0 ? parseFloat(tempInputs[draggedIdx - 1].value) : xMin;
+          const nextTemp = draggedIdx < tempInputs.length - 1 ? parseFloat(tempInputs[draggedIdx + 1].value) : xMax;
+
+          tempVal = Math.max(prevTemp, Math.min(nextTemp, tempVal));
+
+          tempInputs[draggedIdx].value = tempVal.toFixed(1);
+          pwmInputs[draggedIdx].value = Math.round(pwmVal);
+
+          const node = svg.querySelector(`.point-node[data-idx="${draggedIdx}"]`);
+          node.setAttribute('cx', (left + (tempVal - xMin) / (xMax - xMin) * plotW).toFixed(1));
+          node.setAttribute('cy', (top + (1 - (pwmVal - yMin) / (yMax - yMin)) * plotH).toFixed(1));
+
+          updatePolyline();
+        }
+
+        function endDrag() {
+          if (draggedIdx !== null) {
+            svg.querySelector(`.point-node[data-idx="${draggedIdx}"]`).classList.remove('dragging');
+          }
+          draggedIdx = null;
+          isDragging = false;
+          window.removeEventListener('mousemove', drag);
+          window.removeEventListener('touchmove', drag);
+          window.removeEventListener('mouseup', endDrag);
+          window.removeEventListener('touchend', endDrag);
+        }
+
+        function updatePolyline() {
+          const poly = svg.querySelector('.curve-line');
+          if (!poly) return;
+
+          const nodes = Array.from(svg.querySelectorAll('.point-node'));
+          const mode = svg.dataset.mode || 'linear';
+          const finalSamples = [];
+
+          if (nodes.length === 0) return;
+
+          if (mode === 'steps') {
+            for (let i = 0; i < nodes.length - 1; i++) {
+              finalSamples.push(`${nodes[i].getAttribute('cx')},${nodes[i].getAttribute('cy')}`);
+              finalSamples.push(`${nodes[i + 1].getAttribute('cx')},${nodes[i].getAttribute('cy')}`);
+            }
+            finalSamples.push(`${nodes[nodes.length - 1].getAttribute('cx')},${nodes[nodes.length - 1].getAttribute('cy')}`);
+          } else {
+            nodes.forEach(node => {
+              finalSamples.push(`${node.getAttribute('cx')},${node.getAttribute('cy')}`);
+            });
+          }
+          poly.setAttribute('points', finalSamples.join(' '));
+        }
+      }
+
+      initDraggableGraph();
+    })();
+  </script>
+</body>
+
+</html>
