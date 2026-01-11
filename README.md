@@ -2,10 +2,12 @@
 
 **a Docker to send realtime HDD temp-data to drive a custom PWM controller over MQTT**
 
-This project sends HDD temperatures of your unRAID server over MQTT, to feed an external ESP8266/ESP32 to drive your PWM fans. It uses `smartctl` to read temperatures (even when disks are in standby) and lets you conveniently setup a fan curve in its WebUI.
-(as "only" MQTT data is transmitted, you can also use any other device to drive your fans - this project was build around an ESP node, though)
+This project sends HDD temperatures of your unRAID server over MQTT, to feed an external ESP to drive your PWM fans. It uses `smartctl` to read temperatures (even when disks are in standby) and lets you conveniently setup a fan curve in its WebUI.
+*(as "only" MQTT data is transmitted, you can also use any other device to drive your fans - this project was build around an ESP node, though)*
 
-This project relied heavily on vibe-coding, in case you are not comfortable with this.
+Other than the hardware requirements (see below), you will need an **unRAID Server** as well **ESPHome** inside of **Home Assistant**.
+
+*This project relied heavily on vibe-coding, in case you are not comfortable with this.*
 
 ## Features
 - **Intelligent Hysteresis**: Keeps fan speeds (and noise!) stable during minor temperature fluctuations.
