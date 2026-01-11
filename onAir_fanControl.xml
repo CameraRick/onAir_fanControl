@@ -9,9 +9,7 @@
   <Privileged>true</Privileged>
   <Support>https://github.com/CameraRick/onAir_fanControl/issues</Support>
   <Project>https://github.com/CameraRick/onAir_fanControl</Project>
-  <Overview>
-    a Docker to send realtime HDD temp-data to drive a custom PWM fan controller over MQTT (incl templates to make your own controller with ESPHome)
-  </Overview>
+  <Overview>a Docker to send realtime HDD temp-data to drive a custom PWM fan controller over MQTT (incl templates to make your own controller with ESPHome)</Overview>
   <Category>Tools:System Utilities:</Category>
   <WebUI>http://[IP]:[PORT:3590]/</WebUI>
   <TemplateURL/>
@@ -22,9 +20,8 @@
   <DateInstalled/>
   <DonateText/>
   <DonateLink/>
-  <Description>
-    a Docker to send realtime HDD temp-data to drive a custom PWM fan controller over MQTT (incl templates to make your own controller with ESPHome)
-  </Description>
+  <Description>a Docker to send realtime HDD temp-data to drive a custom PWM fan controller over MQTT (incl templates to make your own controller with ESPHome)</Description>
+  <Requires>access to an MQTT Broker and a custom-built ESP controller node (see GitHub repo (https://github.com/CameraRick/onAir_fanControl) for instructions and ESPHome template).</Requires>
   <Networking>
     <Mode>bridge</Mode>
     <Publish>
@@ -42,7 +39,7 @@
       <Mode>rw</Mode>
     </Volume>
     <Volume>
-      <HostDir>/var/local/emhttp/</HostDir>
+      <HostDir>/var/local/emhttp</HostDir>
       <ContainerDir>/host</ContainerDir>
       <Mode>ro</Mode>
     </Volume>
@@ -61,6 +58,6 @@
   </Environment>
   <Config Name="WebUI" Target="8088" Default="3590" Mode="tcp" Description="WebUI" Type="Port" Display="always" Required="true" Mask="false">3590</Config>
   <Config Name="config" Target="/config" Default="/mnt/user/appdata/onair_fancontrol" Mode="rw" Description="" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/onair_fancontrol</Config>
-  <Config Name="disk info" Target="/host" Default="/var/local/emhttp/" Mode="ro" Description="access to disks.ini for spundown status and temps (backup)" Type="Path" Display="always" Required="true" Mask="false">/var/local/emhttp/</Config>
+  <Config Name="disk info" Target="/host" Default="/var/local/emhttp" Mode="ro" Description="access to disks.ini for spundown status and temps (backup)" Type="Path" Display="always" Required="true" Mask="false">/var/local/emhttp</Config>
   <Config Name="SMART info" Target="/dev" Default="/dev" Mode="ro" Description="access to SMART data via ´smartctl -n standby -A´ for real-time temp-data (disks.ini contains cached information)." Type="Path" Display="always" Required="false" Mask="false">/dev</Config>
 </Container>
