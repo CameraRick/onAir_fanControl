@@ -33,6 +33,7 @@ Also, `/dev`: Mount `/dev/` (read only); you have to ensure the container is in 
 
 ### 0. Set up an MQTT Broker
 You need an MQTT Broker to distribute temperature and PWM data. You can use also use an existing one you might already have.
+
 *For this project, I used a dedicated [Mosquitto Docker](https://hub.docker.com/r/eclipse-mosquitto) on my unRAID, even though I already have one inside my Home Assistant; the reasoning was that this controller is not dependent on Home Assistant during operation; like this, it can still run and function even when Home Assistant is down. And without unRAID running, I don't need to cool my HDDs :)*
 
 ### 1. unRAID Docker
@@ -61,8 +62,9 @@ With the ESP connected, select "Install" and choose the file you created in step
 
 E) Restart the ESP and head back into your Home Assistant. Under Settings → Devices & services, your freshly installed ESP should show up under "Discovered". Click "Add" and follow the usual HA setup.
 
-F) Go to `Settings → Devices & services → ESPHome` and select `onAir_fanController`. Have a look at all the exposed sensors (they should already populate from the Docker data), maybe you can utilize them in some other other way as well (e.g. colour changing LEDs to warn for high temps).
-On the bottom of the page, the IP address of this ESP is shown; copy it, head to the Docker WebUI, and paste it under Network → ESP Node. Hit "Save" and restart the Docker; now, on top of the page your ESP should show as "online".
+F) Go to `Settings → Devices & services → ESPHome` and select `onAir_fanController`. Have a look at all the exposed sensors (they should already populate from the Docker data), maybe you can utilize them in some other way as well (e.g. colour changing LEDs to warn for high temps).
+On the bottom of the page, the IP address of this ESP is shown; copy it, head to the Docker WebUI, and paste it under `Network → ESP Node`. Hit "Save" and restart the Docker; now, on top of the page your ESP should show as "online".
+
 *You can also visit this very IP from your browser to access the ESP WebUI; this also works even when Home Assistant is **not** running.*
 
 ### 3. Hardware Setup
@@ -140,5 +142,6 @@ I hope this project can be useful to you. Before I started this project, I had a
 
 Still, I wanted to control the fans manually with a potentiometer/encoder, while having an automated system based on actual HDD temperatures. This is what got me here.
 Maybe it can help you out, as well.
+
 
 
