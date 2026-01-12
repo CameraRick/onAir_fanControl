@@ -7,7 +7,7 @@
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>true</Privileged>
-  <Support>https://github.com/CameraRick/onAir_fanControl/issues</Support>
+  <Support>https://forums.unraid.net/topic/196460-support-onair-fancontrol-a-smart-fan-controller</Support>
   <Project>https://github.com/CameraRick/onAir_fanControl</Project>
   <Overview>a Docker to send realtime HDD temp-data to drive a custom PWM fan controller over MQTT (incl templates to make your own controller with ESPHome)</Overview>
   <Category>Tools:System Utilities:</Category>
@@ -62,3 +62,4 @@
   <Config Name="SMART info" Target="/dev" Default="/dev" Mode="ro" Description="access to SMART data via ´smartctl -n standby -A´ for real-time temp-data (disks.ini contains cached information)." Type="Path" Display="always" Required="false" Mask="false">/dev</Config>
   <Config Name="timezone" Target="TZ" Default="" Mode="" Description="your timezone (e.g. Europe/Berlin, see here: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). Leave empty to use unRAID system time." Type="Variable" Display="always" Required="false" Mask="false"/>
 </Container>
+
