@@ -18,11 +18,13 @@ Other than the hardware requirements (see below), you will need an **unRAID Serv
 - **Straightforward UI**: A simple dashboard for easy setup and monitoring.
 
 **what it doesn't do**
+
 This setup is meant to run a PWM signal to multiple PWM fans at once; you can't create individual groups of fans vs HDDs or send individual signals to each fan. 
 
 It is also not designed to return a tach-signal back to the ESP node or mainboard. However, as a PWM fan hub is used to distribute power and PWM signal to all connected fans, you connect its built-in tach-return to your mainboard; this will usually only return the signal of the master-fan (red port), though.
 
 **inner workings**
+
 Only the hottest drive is considered for the fan curve; no average, no math. That way, even during a hefty Parity Check all drives can stay cool. SSDs and flash drives are not considered for the temperature readings.
 This Docker mounts `/host`:`/var/local/emhttp/` (read only) to read `disks.ini`. This file contains (cached) temperature data, but more importantly shows if a drive is running, or spun down.
 Also, `/dev`: Mount `/dev/` (read only); you have to ensure the container is in **Privileged** mode. This allows `smartctl` to query the drives for real-time SMART temperature data. *If you are not comfortable giving this Docker access to your system like that, you can leave this out; then, only `disks.ini` is used to read temperature data (temps there are not realtime and therefore much less accurate)* 
@@ -138,4 +140,5 @@ I hope this project can be useful to you. Before I started this project, I had a
 
 Still, I wanted to control the fans manually with a potentiometer/encoder, while having an automated system based on actual HDD temperatures. This is what got me here.
 Maybe it can help you out, as well.
+
 
