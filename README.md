@@ -21,7 +21,7 @@ Other than the hardware requirements (see below), you will need an **unRAID Serv
 
 This setup is meant to run a PWM signal to multiple PWM fans at once; you can't create individual groups of fans vs HDDs or send individual signals to each fan. 
 
-It is also not designed to return a tach-signal back to the ESP node or mainboard. However, as a PWM fan hub is used to distribute power and PWM signal to all connected fans, you connect its built-in tach-return to your mainboard; this will usually only return the signal of the master-fan (red port), though.
+It is also not designed to return a tach-signal back to the ESP node or mainboard. However, as a PWM fan hub is used to distribute power and PWM signal to all connected fans, you can connect its built-in tach-return to your mainboard; this will usually only return the signal of the master-fan (red port), though.
 
 **inner workings**
 
@@ -142,6 +142,7 @@ I hope this project can be useful to you. Before I started this project, I had a
 
 Still, I wanted to control the fans manually with a potentiometer/encoder, while having an automated system based on actual HDD temperatures. This is what got me here.
 Maybe it can help you out, as well.
+
 
 
 
